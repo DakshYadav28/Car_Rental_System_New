@@ -17,7 +17,7 @@ namespace Car_Rental_System_New.Repositories
         {
             var user = _context.User.Find(reservationDTO.UserId);
 
-            if (user == null )
+            if (user == null)
                 throw new ArgumentException("Invalid UserId.");
 
             decimal totalFare = reservationDTO.TotalAmount;
@@ -31,136 +31,103 @@ namespace Car_Rental_System_New.Repositories
                 TotalPrice = totalFare
             };
 
-            //using (var transaction = _context.Database.BeginTransaction())
-            //{
-            //    try
-            //    {
-            //        flightRoute.AvailableSeats -= bookingDTO.SeatCount;
-            //        _context.FlightRoutes.Update(flightRoute);
+            using (var transaction = _context.Database.BeginTransaction())
+            {
+                try
+                {
 
-            //        _context.Bookings.Add(booking);
-            //        _context.SaveChanges();
+                    if (!ProcessPayment(reservationDTO.UserId, reservationDTO.TotalAmount))
+                    {
+                        _context.Reservation.Remove(reservation);
+                        _context.SaveChanges();
 
-            //        if (!ProcessPayment(bookingDTO.UserId, bookingDTO.PaymentAmount))
-            //        {
-            //            _context.Bookings.Remove(booking);
-            //            flightRoute.AvailableSeats += bookingDTO.SeatCount;
-            //            _context.SaveChanges();
+                        transaction.Rollback();
+                        throw new InvalidOperationException("Payment processing failed.");
+                    }
 
-            //            transaction.Rollback();
-            //            throw new InvalidOperationException("Payment processing failed.");
-            //        }
+                    transaction.Commit();
 
-            //        transaction.Commit();
-
-            //        return new BookingDTO
-            //        {
-            //            Id = booking.Id,
-            //            UserId = booking.UserId,
-            //            UserUsername = user.Username,
-            //            FlightRouteId = booking.FlightRouteId,
-            //            FlightRouteOrigin = flightRoute.Origin,
-            //            FlightRouteDestination = flightRoute.Destination,
-            //            BookingDate = booking.BookingDate,
-            //            SeatCount = booking.SeatCount,
-            //            TotalFare = booking.TotalFare,
-            //            Status = booking.Status
-            //        };
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        transaction.Rollback();
-            //        throw new InvalidOperationException("An error occurred during the booking process.", ex);
-            //    }
-            //}
+                    return new ReservationDTO
+                    {
+                        Id = reservation.ReservationId,
+                        UserId = (int)reservation.UserId,
+                        Username = user.UserName,
+                        ReservationDate = reservation.PickupDate,
+                        TotalPrice = reservation.TotalPrice,
+                        Status = reservation.Status
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    throw new InvalidOperationException("An error occurred during the reservation process.", ex);
+                }
+            }
         }
 
-        public IEnumerable<ReservationDTO> GetBookingsByUser(int userId)
+        public IEnumerable<ReservationDTO> GetReservationsByUser(int userId)
         {
             var reservations = _context.Reservation
                 .Where(b => b.UserId == userId)
-                //.Include(b => b.FlightRoute)
                 .ToList();
 
             return reservations.Select(b => new ReservationDTO
             {
-                //Id = b.Id,
+                Id = b.ReservationId,
                 UserId = (int)b.UserId,
                 Username = b.User.UserName,
-                ReservationDate = b.ReservationDate,
-                TotalPrice = b.TotalFare,
+                ReservationDate = b.PickupDate,
+                TotalPrice = b.TotalPrice,
                 Status = b.Status
             }).ToList();
         }
-        public IEnumerable<BookingDTO> GetAllBookings()
+        public IEnumerable<ReservationDTO> GetAllReservations()
         {
-            var bookings = _context.Bookings
-                .Include(b => b.User)  // Include user info to show username
-                .Include(b => b.FlightRoute)  // Include flight route info
+            var reservations = _context.Reservation
+                .Include(b => b.User)
                 .ToList();
 
-            return bookings.Select(b => new BookingDTO
+            return reservations.Select(b => new ReservationDTO
             {
-                Id = b.Id,
-                UserId = b.UserId,
-                UserUsername = b.User.Username,  // Show the username for Admin/FlightOwner
-                FlightRouteId = b.FlightRouteId,
-                FlightRouteOrigin = b.FlightRoute.Origin,
-                FlightRouteDestination = b.FlightRoute.Destination,
-                BookingDate = b.BookingDate,
-                SeatCount = b.SeatCount,
-                TotalFare = b.TotalFare,
+                Id = b.ReservationId,
+                UserId = (int)b.UserId,
+                Username = b.User.UserName,  // Show the username for Admin/FlightOwner
+                ReservationDate = b.PickupDate,
+                TotalPrice = b.TotalPrice,
                 Status = b.Status
             }).ToList();
         }
-        public BookingDTO GetBookingById(int bookingId)
+        public ReservationDTO GetReservationById(int reservationId)
         {
-            var booking = _context.Bookings
-                .Where(b => b.Id == bookingId)
-                .Include(b => b.FlightRoute)
-                .ThenInclude(fr => fr.FlightOwner)
+            var reservation = _context.Reservation
+                .Where(b => b.UserId == reservationId)
                 .Include(b => b.User)
                 .FirstOrDefault();
 
-            if (booking == null)
+            if (reservation == null)
             {
                 return null;
             }
 
-            return new BookingDTO
+            return new ReservationDTO
             {
-                Id = booking.Id,
-                UserId = booking.UserId,
-                UserUsername = booking.User?.Username,
-                FlightRouteId = booking.FlightRouteId,
-                FlightRouteOrigin = booking.FlightRoute?.Origin,
-                FlightRouteDestination = booking.FlightRoute?.Destination,
-                BookingDate = booking.BookingDate,
-                SeatCount = booking.SeatCount,
-                TotalFare = booking.TotalFare,
-                Status = booking.Status
+                Id = reservation.ReservationId,
+                UserId = (int)reservation.UserId,
+                Username = reservation.User?.UserName,
+                TotalPrice = reservation.TotalPrice,
+                Status = reservation.Status
             };
         }
 
-        public bool CancelBooking(int bookingId)
+        public bool CancelReservation(int reservationId)
         {
-            var booking = _context.Bookings.Find(bookingId);
+            var reservation = _context.Reservation.Find(reservationId);
 
-            if (booking == null || booking.Status != "Confirmed")
-                throw new InvalidOperationException("Booking not found or already canceled.");
+            if (reservation == null || reservation.Status != "Confirmed")
+                throw new InvalidOperationException(" not found or already canceled.");
 
-            booking.Status = "Canceled";
+            reservation.Status = "Canceled";
             _context.SaveChanges();
-
-            RefundPayment(booking.UserId, booking.FlightRoute.Fare);
-
-            var flightRoute = _context.FlightRoutes.Find(booking.FlightRouteId);
-            if (flightRoute != null)
-            {
-                flightRoute.AvailableSeats += booking.SeatCount;
-                _context.SaveChanges();
-            }
-
             return true;
         }
 

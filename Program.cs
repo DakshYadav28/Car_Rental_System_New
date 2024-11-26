@@ -48,6 +48,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICarService, CarService>();
+builder.Services.AddScoped<IPaymentService,PaymentService >();
 builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -20,21 +20,29 @@ namespace Car_Rental_System_New.Repositories
             if (user == null)
                 throw new ArgumentException("Invalid UserId.");
 
-            decimal totalFare = reservationDTO.TotalAmount;
-
             var reservation = new Reservation
             {
+                //ReservationId = reservationDTO.ReservationId,
                 UserId = reservationDTO.UserId,
-                PickupDate = DateTime.UtcNow,
-                DropoffDate = DateTime.UtcNow,
-                Status = "Confirmed",
-                TotalPrice = totalFare
+                CarId = reservationDTO.CarId,
+                PickupDate = reservationDTO.PickupDate,
+                DropoffDate = reservationDTO.DropoffDate,
+                //PickupDate = DateTime.UtcNow,
+                //DropoffDate = DateTime.UtcNow,
+                Status = reservationDTO.Status,
+                //Status = "Confirmed",
+                TotalPrice = reservationDTO.TotalAmount
             };
 
             using (var transaction = _context.Database.BeginTransaction())
             {
                 try
                 {
+                    // Add the reservation to the context
+                    _context.Reservation.Add(reservation);
+
+                    // Save changes to persist the reservation
+                    _context.SaveChanges();
 
                     if (!ProcessPayment(reservationDTO.UserId, reservationDTO.TotalAmount))
                     {
@@ -50,11 +58,13 @@ namespace Car_Rental_System_New.Repositories
                     return new ReservationDTO
                     {
                         Id = reservation.ReservationId,
-                        UserId = (int)reservation.UserId,
-                        Username = user.UserName,
+                        UserId = reservation.UserId,
+                        CarId = reservation.CarId,
+                        //Username = user.UserName,
                         ReservationDate = reservation.PickupDate,
-                        TotalPrice = reservation.TotalPrice,
-                        Status = reservation.Status
+                        DropoffDate= reservation.DropoffDate,
+                        Status = reservation.Status,
+                        TotalPrice = reservation.TotalPrice                      
                     };
                 }
                 catch (Exception ex)
@@ -75,12 +85,13 @@ namespace Car_Rental_System_New.Repositories
             {
                 Id = b.ReservationId,
                 UserId = (int)b.UserId,
-                Username = b.User.UserName,
+                //Username = b.User.UserName,
                 ReservationDate = b.PickupDate,
                 TotalPrice = b.TotalPrice,
                 Status = b.Status
             }).ToList();
         }
+
         public IEnumerable<ReservationDTO> GetAllReservations()
         {
             var reservations = _context.Reservation
@@ -91,7 +102,7 @@ namespace Car_Rental_System_New.Repositories
             {
                 Id = b.ReservationId,
                 UserId = (int)b.UserId,
-                Username = b.User.UserName,  // Show the username for Admin/FlightOwner
+                //Username = b.User.UserName,  // Show the username for Admin/FlightOwner
                 ReservationDate = b.PickupDate,
                 TotalPrice = b.TotalPrice,
                 Status = b.Status
@@ -100,7 +111,7 @@ namespace Car_Rental_System_New.Repositories
         public ReservationDTO GetReservationById(int reservationId)
         {
             var reservation = _context.Reservation
-                .Where(b => b.UserId == reservationId)
+                .Where(b => b.ReservationId == reservationId)
                 .Include(b => b.User)
                 .FirstOrDefault();
 
@@ -113,7 +124,7 @@ namespace Car_Rental_System_New.Repositories
             {
                 Id = reservation.ReservationId,
                 UserId = (int)reservation.UserId,
-                Username = reservation.User?.UserName,
+                //Username = reservation.User?.UserName,
                 TotalPrice = reservation.TotalPrice,
                 Status = reservation.Status
             };
@@ -124,7 +135,7 @@ namespace Car_Rental_System_New.Repositories
             var reservation = _context.Reservation.Find(reservationId);
 
             if (reservation == null || reservation.Status != "Confirmed")
-                throw new InvalidOperationException(" not found or already canceled.");
+                throw new InvalidOperationException("Reservation not found or already canceled.");
 
             reservation.Status = "Canceled";
             _context.SaveChanges();

@@ -2,7 +2,6 @@
 using Car_Rental_System_New.Models;
 using Car_Rental_System_New.Repositories;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -38,7 +37,7 @@ namespace Car_Rental_System_New.Controllers
         }
 
         //[Authorize(Roles = "User,Admin")]
-        [HttpGet("{ReservationId}")]
+        [HttpGet("{reservationId}")]
         public IActionResult GetReservationById(int reservationId)
         {
             var reservation = _reservationService.GetReservationById(reservationId);
@@ -50,16 +49,21 @@ namespace Car_Rental_System_New.Controllers
         }
 
         //[Authorize(Roles = "User,Admin")]
+        [Authorize]
         [HttpGet("byuser/")]
         public IActionResult GetReservationsByUser()
         {
-            var userId = int.Parse(User.FindFirstValue("userId"));  // Extract userId from JWT token
+            int userId = int.Parse(User.FindFirstValue("userId"));  // Extract userId from JWT token
             var reservations = _reservationService.GetReservationsByUser(userId);
+
+            if (reservations == null)
+                return NotFound("Bookings not found.");
+
             return Ok(reservations);
         }
 
         //[Authorize(Roles = "User,Admin")]
-        [HttpDelete("{bookingId}")]
+        [HttpDelete("{ReservationId}")]
         public IActionResult CancelReservation(int reservationId)
         {
             try
@@ -74,7 +78,7 @@ namespace Car_Rental_System_New.Controllers
         }
         // GET api/bookings/history 
         [Authorize]
-        //[HttpGet("history")]
+        [HttpGet("history")]
         public IActionResult GetReservationHistory()
         {
             var userRole = User.FindFirst("userRole")?.Value; // Extract custom role from JWT

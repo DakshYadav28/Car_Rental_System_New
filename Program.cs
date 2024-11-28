@@ -12,6 +12,15 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()      // Allow all origins
+              .AllowAnyMethod()      // Allow all HTTP methods
+              .AllowAnyHeader();     // Allow all headers
+    });
+});
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -46,6 +55,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CarOwnerPolicy", policy => policy.RequireRole("CarOwner"));
     options.AddPolicy("UserPolicy", policy => policy.RequireRole("User"));
 });
+
+
 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICarService, CarService>();
@@ -107,6 +118,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRouting();
+
+// Apply the CORS policy
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
